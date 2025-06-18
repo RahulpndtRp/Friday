@@ -4,6 +4,8 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 import uuid
 
+from src.core.utils.datetime_utils import utc_now
+
 
 class MemoryType(Enum):
     """Different types of memory in the system."""
@@ -50,9 +52,9 @@ class MemoryEntry:
     tags: List[str] = field(default_factory=list)
 
     # Temporal information
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
-    accessed_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=utc_now)
+    updated_at: datetime = field(default_factory=utc_now)
+    accessed_at: datetime = field(default_factory=utc_now)
     expires_at: Optional[datetime] = None
 
     # Relationships and context
