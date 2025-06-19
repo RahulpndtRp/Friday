@@ -11,7 +11,7 @@ from src.core.memory.memory_manager import MemoryManager, MemoryType, MemoryImpo
 class MemoryBrain(BaseBrain):
     """Brain component responsible for memory operations."""
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: "Settings"):
         super().__init__(BrainType.MEMORY, settings)
         self.memory_managers: Dict[str, MemoryManager] = {}
 

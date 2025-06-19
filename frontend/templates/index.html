@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero">
+    <div class="hero-content">
+        <h1>🤖 FRIDAY</h1>
+        <h2>Your Personal AI Assistant</h2>
+        <p>Intelligent conversations, document processing, and memory management</p>
+
+        <div class="hero-actions">
+            <a href="/chat" class="btn btn-primary">Start Chatting</a>
+            <a href="/api/docs" class="btn btn-secondary">API Documentation</a>
+        </div>
+
+        <div class="status-card" id="systemStatus">
+            <h3>System Status</h3>
+            <div class="status-loading">Checking...</div>
+        </div>
+    </div>
+</div>
+
+<div class="features">
+    <div class="container">
+        <h2>Features</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">💬</div>
+                <h3>Intelligent Chat</h3>
+                <p>Real-time conversations with GPT-4 powered responses</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🧠</div>
+                <h3>Memory System</h3>
+                <p>Persistent memory that learns and remembers your preferences</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📄</div>
+                <h3>Document Processing</h3>
+                <p>Upload and query your documents with AI-powered search</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔄</div>
+                <h3>Real-time Streaming</h3>
+                <p>Watch responses generate in real-time like ChatGPT</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Check system status on page load
+    async function checkSystemStatus() {
+        try {
+            const response = await fetch('/health');
+            const data = await response.json();
+
+            const statusCard = document.getElementById('systemStatus');
+            statusCard.innerHTML = `
+                <h3>System Status</h3>
+                <div class="status-item">
+                    <span class="status-label">API:</span>
+                    <span class="status-value ${data.status === 'healthy' ? 'healthy' : 'unhealthy'}">${data.status}</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Chat Managers:</span>
+                    <span class="status-value">${data.active_chat_managers}</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Version:</span>
+                    <span class="status-value">${data.version}</span>
+                </div>
+            `;
+        } catch (error) {
+            const statusCard = document.getElementById('systemStatus');
+            statusCard.innerHTML = `
+                <h3>System Status</h3>
+                <div class="status-error">❌ Connection failed</div>
+            `;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', checkSystemStatus);
+</script>
+{% endblock %}

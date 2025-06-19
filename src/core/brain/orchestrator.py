@@ -11,7 +11,7 @@ from src.core.brain.base_brain import BrainType, BaseBrain, BrainRequest, BrainR
 class BrainOrchestrator:
     """Orchestrates communication between different brain components."""
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: "Settings"):
         self.settings = settings
         self.logger = StructuredLogger("brain.orchestrator")
         self.brains: Dict[BrainType, BaseBrain] = {}

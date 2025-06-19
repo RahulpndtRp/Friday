@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="chat-container">
+    <div class="chat-header">
+        <div class="chat-title">
+            <h1>🤖 FRIDAY Assistant</h1>
+            <div class="chat-status" id="chatStatus">Connecting...</div>
+        </div>
+        <div class="chat-controls">
+            <button id="settingsBtn" class="btn btn-icon" title="Settings">⚙️</button>
+            <button id="clearBtn" class="btn btn-icon" title="Clear Chat">🗑️</button>
+        </div>
+    </div>
+
+    <div class="chat-messages" id="chatMessages">
+        <!-- Messages will be dynamically added here -->
+    </div>
+
+    <div class="chat-input-section">
+        <div class="chat-input-wrapper">
+            <textarea id="messageInput" placeholder="Type your message to FRIDAY..." rows="1"></textarea>
+            <button id="sendBtn" class="btn btn-primary">
+                <span class="btn-text">Send</span>
+                <span class="btn-icon">📤</span>
+            </button>
+        </div>
+
+        <div class="chat-options">
+            <div class="option-group">
+                <label class="toggle-label">
+                    <input type="checkbox" id="streamingToggle" checked>
+                    <span class="toggle-slider"></span>
+                    Streaming
+                </label>
+            </div>
+            <div class="option-group">
+                <label class="toggle-label">
+                    <input type="checkbox" id="debugToggle">
+                    <span class="toggle-slider"></span>
+                    Debug
+                </label>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settingsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Settings</h2>
+            <button class="modal-close" id="closeSettings">×</button>
+        </div>
+        <div class="modal-body">
+            <div class="setting-group">
+                <label>User ID:</label>
+                <input type="text" id="userIdInput" value="{{ user_id }}" readonly>
+            </div>
+            <div class="setting-group">
+                <label>API Base URL:</label>
+                <input type="text" id="apiUrlInput" value="{{ api_base_url }}" readonly>
+            </div>
+            <div class="setting-group">
+                <label>Theme:</label>
+                <select id="themeSelect">
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                    <option value="auto">Auto</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/chat.js"></script>
+{% endblock %}

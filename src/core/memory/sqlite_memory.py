@@ -20,7 +20,9 @@ from src.core.config.settings import Settings
 class SQLiteMemoryStore(BaseMemoryStore):
     """Improved SQLite-based memory store with proper connection handling."""
 
-    def __init__(self, user_id: str, settings: Settings, db_path: Optional[str] = None):
+    def __init__(
+        self, user_id: str, settings: "Settings", db_path: Optional[str] = None
+    ):
         super().__init__(user_id, settings)
         self.db_path = db_path or f"{settings.memory_db_path}_{user_id}.db"
         self._connection = None

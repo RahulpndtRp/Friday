@@ -20,7 +20,7 @@ from core.documents.models import (
 class TextParser(BaseDocumentParser):
     """Parser for plain text documents."""
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: "Settings"):
         super().__init__(settings)
         self.supported_types = [DocumentType.TXT, DocumentType.MD]
 

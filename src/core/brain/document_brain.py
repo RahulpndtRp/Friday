@@ -16,7 +16,7 @@ from src.core.documents.models import (
 class DocumentBrain(BaseBrain):
     """Brain component responsible for document operations."""
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: "Settings"):
         super().__init__(
             BrainType.KNOWLEDGE, settings
         )  # Using KNOWLEDGE type for documents

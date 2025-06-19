@@ -14,7 +14,7 @@ from src.core.documents.models import (
 class BaseDocumentParser(ABC):
     """Abstract base class for document parsers."""
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: "Settings"):
         self.settings = settings
         self.logger = StructuredLogger(f"parser.{self.__class__.__name__.lower()}")
         self.supported_types: List[DocumentType] = []

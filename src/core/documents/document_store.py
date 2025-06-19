@@ -22,7 +22,7 @@ from src.core.telemetry.logger import StructuredLogger
 class DocumentStore:
     """SQLite-based storage for processed documents."""
 
-    def __init__(self, user_id: str, settings: Settings):
+    def __init__(self, user_id: str, settings: "Settings"):
         self.user_id = user_id
         self.settings = settings
         self.logger = StructuredLogger("document.store")

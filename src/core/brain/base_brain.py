@@ -45,7 +45,7 @@ class BrainResponse:
 class BaseBrain(ABC):
     """Abstract base class for all AI brain components."""
 
-    def __init__(self, brain_type: BrainType, settings: Settings):
+    def __init__(self, brain_type: BrainType, settings: "Settings"):
         self.brain_type = brain_type
         self.settings = settings
         self.logger = StructuredLogger(f"brain.{brain_type.value}")
