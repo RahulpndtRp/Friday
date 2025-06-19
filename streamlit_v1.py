@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-FRIDAY AI Assistant - Enhanced Streamlit Application
-Advanced UI with better chat experience, memory categorization, and modern design
+FRIDAY AI Assistant - Complete Streamlit Application
+A production-ready chat interface with memory, RAG, and user management
 
-Deploy with: streamlit run enhanced_friday_streamlit.py
+Deploy with: streamlit run friday_streamlit_app.py
 """
 
 import streamlit as st
@@ -33,18 +33,17 @@ st.set_page_config(
         "Get Help": "https://github.com/your-username/friday-assistant",
         "Report a bug": "https://github.com/your-username/friday-assistant/issues",
         "About": """
-        # FRIDAY AI Assistant v2.0
+        # FRIDAY AI Assistant
         
-        Your advanced personal AI assistant with persistent memory, intelligent conversation,
-        and real-time learning capabilities.
+        Your personal AI assistant with persistent memory, document processing, 
+        and intelligent conversation capabilities.
         
-        **Enhanced Features:**
-        - 🧠 Advanced Memory Categorization
-        - 📄 Smart Context Understanding
-        - 🤖 Improved RAG Pipeline
-        - 💬 Modern Chat Interface
+        **Features:**
+        - 🧠 Persistent Memory System
+        - 📄 Document Processing & Search
+        - 🤖 Advanced RAG Pipeline
+        - 💬 Real-time Chat Interface
         - 👤 Multi-user Support
-        - 🎨 Beautiful UI/UX
         
         Built with Python, Streamlit, and cutting-edge AI.
         """,
@@ -77,340 +76,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(CHAT_HISTORY_DIR, exist_ok=True)
 
 # ============================================================================
-# 🎨 ENHANCED CSS STYLING
-# ============================================================================
-
-
-def apply_enhanced_css():
-    """Apply enhanced CSS for modern UI"""
-    st.markdown(
-        """
-    <style>
-    /* Import Google Fonts */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-    
-    /* Global Styles */
-    .main {
-        padding-top: 1rem;
-        font-family: 'Inter', sans-serif;
-    }
-    
-    /* Hide Streamlit default elements */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    .stDeployButton {display: none;}
-    
-    /* Sidebar Styling */
-    .css-1d391kg {
-        background: linear-gradient(180deg, #1e3c72 0%, #2a5298 100%);
-        color: white;
-    }
-    
-    .css-1d391kg .stSelectbox label,
-    .css-1d391kg .stCheckbox label,
-    .css-1d391kg .stTextInput label {
-        color: white !important;
-        font-weight: 500;
-    }
-    
-    /* Enhanced Chat Messages */
-    .user-message {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 1.2rem;
-        border-radius: 20px 20px 5px 20px;
-        margin: 1rem 0 1rem 15%;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-        position: relative;
-        animation: slideInRight 0.3s ease-out;
-    }
-    
-    .assistant-message {
-        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-        color: #2c3e50;
-        padding: 1.2rem;
-        border-radius: 20px 20px 20px 5px;
-        margin: 1rem 15% 1rem 0;
-        border-left: 4px solid #4285f4;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        position: relative;
-        animation: slideInLeft 0.3s ease-out;
-    }
-    
-    /* Animation keyframes */
-    @keyframes slideInRight {
-        from { opacity: 0; transform: translateX(30px); }
-        to { opacity: 1; transform: translateX(0); }
-    }
-    
-    @keyframes slideInLeft {
-        from { opacity: 0; transform: translateX(-30px); }
-        to { opacity: 1; transform: translateX(0); }
-    }
-    
-    /* Typing indicator */
-    .typing-indicator {
-        background: #f1f3f4;
-        padding: 1rem;
-        border-radius: 20px;
-        margin: 1rem 15% 1rem 0;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        animation: pulse 1.5s infinite;
-    }
-    
-    .typing-dots {
-        display: flex;
-        gap: 4px;
-    }
-    
-    .typing-dot {
-        width: 8px;
-        height: 8px;
-        background: #4285f4;
-        border-radius: 50%;
-        animation: bounce 1.4s infinite;
-    }
-    
-    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-    
-    @keyframes bounce {
-        0%, 60%, 100% { transform: translateY(0); }
-        30% { transform: translateY(-10px); }
-    }
-    
-    @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.7; }
-    }
-    
-    /* Enhanced Status Indicators */
-    .status-online { 
-        color: #34a853; 
-        font-weight: 600;
-        text-shadow: 0 0 5px rgba(52, 168, 83, 0.3);
-    }
-    .status-thinking { 
-        color: #fbbc04; 
-        font-weight: 600;
-        text-shadow: 0 0 5px rgba(251, 188, 4, 0.3);
-    }
-    .status-error { 
-        color: #ea4335; 
-        font-weight: 600;
-        text-shadow: 0 0 5px rgba(234, 67, 53, 0.3);
-    }
-    
-    /* Enhanced Memory Stats */
-    .memory-stats {
-        background: linear-gradient(135deg, #e8f0fe 0%, #f8f9ff 100%);
-        border-radius: 15px;
-        padding: 1.2rem;
-        margin: 0.8rem 0;
-        border: 1px solid #e1e8f0;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    }
-    
-    .memory-category {
-        background: linear-gradient(135deg, #fff3e0 0%, #ffe8cc 100%);
-        border-radius: 8px;
-        padding: 0.5rem 0.8rem;
-        margin: 0.3rem 0;
-        border-left: 3px solid #ff9800;
-        font-size: 0.9rem;
-    }
-    
-    /* Enhanced Buttons */
-    .stButton > button {
-        border-radius: 12px;
-        border: none;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        font-weight: 600;
-        padding: 0.6rem 1.5rem;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-    }
-    
-    .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-    }
-    
-    .stButton > button:active {
-        transform: translateY(0);
-    }
-    
-    /* Send button special styling */
-    .send-button {
-        background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%) !important;
-        font-size: 1.1rem !important;
-        padding: 0.8rem 2rem !important;
-        border-radius: 15px !important;
-    }
-    
-    /* Enhanced Input Field */
-    .stTextArea > div > div > textarea {
-        border-radius: 15px;
-        border: 2px solid #e1e8f0;
-        padding: 1rem;
-        font-size: 1rem;
-        font-family: 'Inter', sans-serif;
-        transition: all 0.3s ease;
-        resize: none;
-    }
-    
-    .stTextArea > div > div > textarea:focus {
-        border-color: #4285f4;
-        box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
-        outline: none;
-    }
-    
-    /* User card in sidebar */
-    .user-card {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 12px;
-        padding: 1rem;
-        margin: 0.8rem 0;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        backdrop-filter: blur(10px);
-    }
-    
-    /* Metrics styling */
-    .metric-card {
-        background: rgba(255, 255, 255, 0.9);
-        border-radius: 10px;
-        padding: 1rem;
-        margin: 0.5rem 0;
-        border-left: 4px solid #4285f4;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-    
-    /* Welcome message styling */
-    .welcome-message {
-        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-        border: 2px dashed #4285f4;
-        border-radius: 20px;
-        padding: 2rem;
-        margin: 2rem 0;
-        text-align: center;
-        animation: fadeIn 0.8s ease-out;
-    }
-    
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    
-    /* Chat container */
-    .chat-container {
-        max-height: 70vh;
-        overflow-y: auto;
-        padding: 1rem;
-        margin-bottom: 2rem;
-    }
-    
-    /* Scrollbar styling */
-    .chat-container::-webkit-scrollbar {
-        width: 6px;
-    }
-    
-    .chat-container::-webkit-scrollbar-track {
-        background: #f1f3f4;
-        border-radius: 3px;
-    }
-    
-    .chat-container::-webkit-scrollbar-thumb {
-        background: #4285f4;
-        border-radius: 3px;
-    }
-    
-    .chat-container::-webkit-scrollbar-thumb:hover {
-        background: #3367d6;
-    }
-    
-    /* Input container */
-    .input-container {
-        position: sticky;
-        bottom: 0;
-        background: white;
-        border-top: 1px solid #e1e8f0;
-        padding: 1.5rem;
-        border-radius: 20px 20px 0 0;
-        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
-    }
-    
-    /* Message timestamp */
-    .message-time {
-        font-size: 0.75rem;
-        opacity: 0.7;
-        margin-top: 0.5rem;
-        text-align: right;
-    }
-    
-    /* Processing indicator */
-    .processing-indicator {
-        font-size: 0.8rem;
-        color: #4285f4;
-        font-weight: 500;
-    }
-    
-    /* Custom selectbox */
-    .stSelectbox > div > div > select {
-        border-radius: 10px;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        background: rgba(255, 255, 255, 0.1);
-        color: white;
-    }
-    
-    /* Memory type badges */
-    .memory-badge {
-        display: inline-block;
-        padding: 0.2rem 0.6rem;
-        border-radius: 15px;
-        font-size: 0.8rem;
-        font-weight: 500;
-        margin: 0.1rem;
-    }
-    
-    .badge-personal { background: #e3f2fd; color: #1976d2; }
-    .badge-work { background: #f3e5f5; color: #7b1fa2; }
-    .badge-interests { background: #e8f5e8; color: #388e3c; }
-    .badge-general { background: #fff3e0; color: #f57c00; }
-    
-    /* Header styling */
-    .main-header {
-        text-align: center;
-        padding: 2rem 0;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border-radius: 20px;
-        margin-bottom: 2rem;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    }
-    
-    .main-header h1 {
-        font-size: 2.5rem;
-        font-weight: 700;
-        margin-bottom: 0.5rem;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-    
-    .main-header p {
-        font-size: 1.2rem;
-        opacity: 0.9;
-        font-weight: 300;
-    }
-    </style>
-    """,
-        unsafe_allow_html=True,
-    )
-
-
-# ============================================================================
-# 💾 DATA PERSISTENCE FUNCTIONS (Enhanced)
+# 💾 DATA PERSISTENCE FUNCTIONS
 # ============================================================================
 
 
@@ -453,31 +119,31 @@ def save_chat_history(user_id: str, history: List[Dict[str, Any]]) -> None:
     try:
         history_file = os.path.join(CHAT_HISTORY_DIR, f"{user_id}.json")
         with open(history_file, "w") as f:
-            json.dump(history[-200:], f, indent=2)  # Keep last 200 messages
+            json.dump(history[-100:], f, indent=2)  # Keep last 100 messages
     except Exception as e:
         logger.error(f"Error saving chat history for {user_id}: {e}")
 
 
 # ============================================================================
-# 🧠 ENHANCED MEMORY SYSTEM
+# 🧠 MEMORY SYSTEM INITIALIZATION
 # ============================================================================
 
 
 @st.cache_resource
 def initialize_memory_system():
-    """Initialize the FRIDAY memory system with enhanced configuration"""
+    """Initialize the FRIDAY memory system (cached for performance)"""
     try:
         from my_mem.client import AsyncMemoryClient
         from my_mem.configs.base import MemoryConfig, LlmConfig
 
-        # Enhanced configuration
+        # Configure async memory client
         config = MemoryConfig(
             llm=LlmConfig(provider="openai_async", config={}),
             vector_store={
                 "provider": "faiss",
                 "config": {
-                    "path": ".faiss_streamlit_enhanced",
-                    "collection_name": "friday_assistant_v2",
+                    "path": ".faiss_streamlit",
+                    "collection_name": "friday_assistant",
                     "embedding_model_dims": 1536,
                 },
             },
@@ -485,13 +151,13 @@ def initialize_memory_system():
 
         memory_client = AsyncMemoryClient(
             config=config,
-            top_k=8,  # More context
-            ltm_threshold=0.70,  # Lower threshold for more recall
-            procedural_every_n=8,  # More frequent summarization
+            top_k=7,
+            ltm_threshold=0.75,
+            procedural_every_n=10,  # Auto-summarize every 10 messages
             enable_auto_summary=True,
         )
 
-        logger.info("✅ Enhanced FRIDAY Memory System initialized")
+        logger.info("✅ FRIDAY Memory System initialized successfully")
         return memory_client
 
     except Exception as e:
@@ -501,12 +167,185 @@ def initialize_memory_system():
 
 
 # ============================================================================
-# 📊 ENHANCED MEMORY ANALYTICS
+# 🎨 CUSTOM CSS STYLING
 # ============================================================================
 
 
-async def get_enhanced_memory_stats(user_id: str) -> Dict[str, Any]:
-    """Get enhanced memory statistics with categorization"""
+def apply_custom_css():
+    """Apply custom CSS for better UI"""
+    st.markdown(
+        """
+    <style>
+    /* Main container styling */
+    .main {
+        padding-top: 1rem;
+    }
+    
+    /* Sidebar styling */
+    .css-1d391kg {
+        background-color: #f8f9fa;
+    }
+    
+    /* Chat message styling */
+    .user-message {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1rem;
+        border-radius: 15px;
+        margin: 0.5rem 0;
+        margin-left: 20%;
+        position: relative;
+    }
+    
+    .assistant-message {
+        background: #f1f3f4;
+        color: #333;
+        padding: 1rem;
+        border-radius: 15px;
+        margin: 0.5rem 0;
+        margin-right: 20%;
+        border-left: 4px solid #4285f4;
+    }
+    
+    /* Status indicators */
+    .status-online { color: #34a853; }
+    .status-thinking { color: #fbbc04; }
+    .status-error { color: #ea4335; }
+    
+    /* Memory stats */
+    .memory-stats {
+        background: #e8f0fe;
+        border-radius: 10px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+    }
+    
+    /* Button styling */
+    .stButton > button {
+        border-radius: 10px;
+        border: none;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+    
+    /* Sidebar user card */
+    .user-card {
+        background: white;
+        border-radius: 10px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        border: 1px solid #e0e0e0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    /* Metrics styling */
+    .metric-card {
+        background: white;
+        border-radius: 8px;
+        padding: 0.8rem;
+        margin: 0.3rem 0;
+        border-left: 4px solid #4285f4;
+    }
+    </style>
+    """,
+        unsafe_allow_html=True,
+    )
+
+
+# ============================================================================
+# 📊 SESSION STATE MANAGEMENT
+# ============================================================================
+
+
+def initialize_session_state():
+    """Initialize all session state variables"""
+    if "users" not in st.session_state:
+        st.session_state.users = load_users()
+        if not st.session_state.users:
+            default_user = f"User-{uuid.uuid4().hex[:6]}"
+            st.session_state.users = [default_user]
+            save_users(st.session_state.users)
+
+    if "selected_user" not in st.session_state:
+        st.session_state.selected_user = (
+            st.session_state.users[0] if st.session_state.users else None
+        )
+
+    if "memory_client" not in st.session_state:
+        st.session_state.memory_client = initialize_memory_system()
+
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = {}
+
+    if "processing" not in st.session_state:
+        st.session_state.processing = False
+
+    if "memory_stats" not in st.session_state:
+        st.session_state.memory_stats = {}
+
+    if "show_settings" not in st.session_state:
+        st.session_state.show_settings = False
+
+    if "auto_save" not in st.session_state:
+        st.session_state.auto_save = True
+
+    if "streaming_enabled" not in st.session_state:
+        st.session_state.streaming_enabled = True
+
+
+# ============================================================================
+# 👤 USER MANAGEMENT FUNCTIONS
+# ============================================================================
+
+
+def create_new_user(name_hint: str = "") -> str:
+    """Create a new user with optional name hint"""
+    if name_hint.strip():
+        new_user = f"{name_hint.strip()}-{uuid.uuid4().hex[:4]}"
+    else:
+        new_user = f"User-{uuid.uuid4().hex[:6]}"
+
+    st.session_state.users.append(new_user)
+    save_users(st.session_state.users)
+    return new_user
+
+
+def delete_user(user_id: str) -> bool:
+    """Delete a user and their data"""
+    try:
+        if user_id in st.session_state.users:
+            st.session_state.users.remove(user_id)
+            save_users(st.session_state.users)
+
+            # Clean up user data
+            history_file = os.path.join(CHAT_HISTORY_DIR, f"{user_id}.json")
+            if os.path.exists(history_file):
+                os.remove(history_file)
+
+            # Clear from session state
+            if user_id in st.session_state.chat_history:
+                del st.session_state.chat_history[user_id]
+
+            return True
+    except Exception as e:
+        logger.error(f"Error deleting user {user_id}: {e}")
+    return False
+
+
+# ============================================================================
+# 🧠 MEMORY & CHAT FUNCTIONS
+# ============================================================================
+
+
+async def get_memory_stats(user_id: str) -> Dict[str, Any]:
+    """Get memory statistics for a user"""
     try:
         if st.session_state.memory_client:
             all_memories = await st.session_state.memory_client.get_all_memories(
@@ -514,120 +353,51 @@ async def get_enhanced_memory_stats(user_id: str) -> Dict[str, Any]:
             )
             memories = all_memories.get("results", [])
 
-            # Enhanced categorization
-            categories = {
-                "personal": 0,
-                "work": 0,
-                "interests": 0,
-                "procedural": 0,
-                "general": 0,
-            }
-
-            recent_count = 0
-
+            # Categorize memories
+            categories = {}
             for mem in memories:
-                content = mem.get("memory", "").lower()
                 mem_type = mem.get("metadata", {}).get("memory_type", "general")
-
-                # Smart categorization based on content
-                if any(
-                    word in content
-                    for word in [
-                        "i am",
-                        "my name",
-                        "i live",
-                        "i work",
-                        "i like",
-                        "i love",
-                        "i prefer",
-                    ]
-                ):
-                    categories["personal"] += 1
-                elif any(
-                    word in content
-                    for word in [
-                        "work",
-                        "job",
-                        "career",
-                        "office",
-                        "project",
-                        "meeting",
-                    ]
-                ):
-                    categories["work"] += 1
-                elif any(
-                    word in content
-                    for word in [
-                        "book",
-                        "movie",
-                        "music",
-                        "hobby",
-                        "sport",
-                        "game",
-                        "read",
-                    ]
-                ):
-                    categories["interests"] += 1
-                elif mem_type == "procedural":
-                    categories["procedural"] += 1
-                else:
-                    categories["general"] += 1
-
-                # Count recent memories (last 24 hours)
-                try:
-                    created_at = mem.get("created_at", "")
-                    if created_at:
-                        # Simple check for recent memories
-                        recent_count += (
-                            1 if len(memories) - memories.index(mem) <= 10 else 0
-                        )
-                except:
-                    pass
+                categories[mem_type] = categories.get(mem_type, 0) + 1
 
             return {
                 "total": len(memories),
                 "categories": categories,
-                "recent": min(recent_count, 10),
-                "active_categories": len([c for c in categories.values() if c > 0]),
+                "recent": len([m for m in memories[-10:]]) if memories else 0,
             }
     except Exception as e:
-        logger.error(f"Error getting enhanced memory stats: {e}")
+        logger.error(f"Error getting memory stats: {e}")
 
-    return {"total": 0, "categories": {}, "recent": 0, "active_categories": 0}
-
-
-# ============================================================================
-# 💬 ENHANCED CHAT PROCESSING
-# ============================================================================
+    return {"total": 0, "categories": {}, "recent": 0}
 
 
-async def process_user_message_enhanced(user_id: str, message: str) -> str:
-    """Enhanced message processing with better error handling"""
+async def process_user_message(user_id: str, message: str) -> str:
+    """Process user message through FRIDAY system"""
     try:
         if not st.session_state.memory_client:
             return "❌ Memory system not available. Please refresh the page."
 
-        # Process through enhanced RAG
-        result = await st.session_state.memory_client.query_rag(
-            message, user_id=user_id
-        )
-        response = result.get("answer", "I couldn't generate a response.")
-
-        # Add source information if available
-        sources = result.get("sources", [])
-        if sources and len(response) > 50:  # Only add sources for substantial responses
-            source_count = len(sources)
-            response += f"\n\n*💡 Response based on {source_count} memory{'ies' if source_count > 1 else 'y'}*"
-
-        return response.strip()
+        if st.session_state.streaming_enabled:
+            # For streaming, we'll collect the full response
+            full_response = ""
+            async for token in st.session_state.memory_client.stream_rag(
+                message, user_id=user_id
+            ):
+                full_response += token
+            return full_response.strip()
+        else:
+            # Non-streaming response
+            result = await st.session_state.memory_client.query_rag(
+                message, user_id=user_id
+            )
+            return result.get("answer", "I couldn't generate a response.")
 
     except Exception as e:
         logger.error(f"Error processing message: {e}")
-        return f"❌ I encountered an error processing your message. Please try again."
+        return f"❌ Error processing your message: {str(e)}"
 
 
-async def stream_response_enhanced(user_id: str, message: str):
-    """Enhanced streaming with better error handling"""
+async def stream_response(user_id: str, message: str):
+    """Stream response token by token"""
     try:
         if st.session_state.memory_client:
             async for token in st.session_state.memory_client.stream_rag(
@@ -636,43 +406,7 @@ async def stream_response_enhanced(user_id: str, message: str):
                 yield token
     except Exception as e:
         logger.error(f"Error in streaming response: {e}")
-        yield f"❌ Sorry, I encountered an error while processing your message."
-
-
-# ============================================================================
-# 📊 SESSION STATE MANAGEMENT (Enhanced)
-# ============================================================================
-
-
-def initialize_session_state():
-    """Initialize enhanced session state variables"""
-    defaults = {
-        "users": load_users() or [f"User-{uuid.uuid4().hex[:6]}"],
-        "selected_user": None,
-        "memory_client": initialize_memory_system(),
-        "chat_history": {},
-        "processing": False,
-        "memory_stats": {},
-        "show_settings": False,
-        "auto_save": True,
-        "streaming_enabled": True,
-        "message_count": 0,
-        "typing_indicator": False,
-        "last_activity": time.time(),
-        "chat_input_key": 0,  # For clearing input after send
-    }
-
-    for key, default_value in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = default_value
-
-    # Set initial selected user
-    if not st.session_state.selected_user and st.session_state.users:
-        st.session_state.selected_user = st.session_state.users[0]
-
-    # Save users if they were created
-    if len(st.session_state.users) == 1 and not load_users():
-        save_users(st.session_state.users)
+        yield f"❌ Error: {str(e)}"
 
 
 # ============================================================================
