@@ -1,6 +1,13 @@
-from typing import Dict, Any, List, Optional, AsyncGenerator, Union
-import time
+"""
+Direct fix for FRIDAY's memory system - replace existing memory components
+This fixes the integration by directly modifying the existing chat manager
+"""
 
+# Step 1: Replace src/core/chat/chat_manager.py with this enhanced version
+
+import time
+import asyncio
+from typing import Dict, Any, List, Optional, AsyncGenerator, Union
 
 from src.core.chat.models import (
     Conversation,
@@ -11,18 +18,31 @@ from src.core.chat.models import (
     ChatMessageResponse,
     StreamChunk,
 )
-from src.core.memory.models import MemoryType, MemoryImportance
 from src.core.chat.chat_store import ChatStore
 from src.core.llm.model_router import ModelRouter
-from src.core.utils.datetime_utils import utc_now, safe_parse_datetime
+from src.core.utils.datetime_utils import utc_now
 from src.core.telemetry.logger import StructuredLogger, log_execution_time
 from src.core.config.settings import Settings
 
+# Import memrp components directly
+try:
+    from my_mem.memory.main import AsyncMemory
+    from my_mem.rag.rag_pipeline import AsyncRAGPipeline
+    from my_mem.configs.base import MemoryConfig
 
-class ChatManager:
-    """High-level chat management and orchestration."""
+    MEMRP_AVAILABLE = True
+except ImportError:
+    MEMRP_AVAILABLE = False
+    print("⚠️  memrp not available, using fallback memory")
 
-    def __init__(self, user_id: str, settings: "Settings"):
+
+class EnhancedChatManager:
+    """
+    Enhanced Chat Manager with direct memrp integration
+    This replaces your existing ChatManager
+    """
+
+    def __init__(self, user_id: str, settings: Settings):
         self.user_id = user_id
         self.settings = settings
         self.logger = StructuredLogger("chat.manager")
@@ -31,29 +51,80 @@ class ChatManager:
         self.chat_store = ChatStore(user_id, settings)
         self.model_router = ModelRouter(settings)
 
-        # Import brain orchestrator and other managers
-        self.brain_orchestrator = None  # Will be injected
-        self.memory_manager = None  # Will be injected
-        self.document_manager = None  # Will be injected
+        # Initialize memrp memory system
+        self.memory_system = None
+        self.rag_pipeline = None
+        self._initialize_memory_system()
+
+        # Legacy components (kept for compatibility)
+        self.brain_orchestrator = None
+        self.memory_manager = None
+        self.document_manager = None
 
         # Configuration
         self.max_context_length = 4000
         self.default_conversation_title = "New Conversation"
 
+    def _initialize_memory_system(self):
+        """Initialize the memrp memory system"""
+        if not MEMRP_AVAILABLE:
+            self.logger.warning("memrp not available, memory features disabled")
+            return
+
+        try:
+            # Configure memrp for FRIDAY
+            memory_config = MemoryConfig(
+                llm={
+                    "provider": "openai_async",
+                    "config": {
+                        "model": "gpt-4o-mini",
+                        "temperature": 0.1,
+                        "api_key": self.settings.openai_api_key,
+                        "max_tokens": 2000,
+                    },
+                },
+                vector_store={
+                    "provider": "faiss",
+                    "config": {
+                        "path": ".friday_memory",
+                        "collection_name": "friday_memories",
+                        "embedding_model_dims": 1536,
+                    },
+                },
+                embedder={
+                    "provider": "openai",
+                    "config": {
+                        "model": "text-embedding-ada-002",
+                        "api_key": self.settings.openai_api_key,
+                    },
+                },
+            )
+
+            # Initialize memory and RAG
+            self.memory_system = AsyncMemory(memory_config)
+            self.rag_pipeline = AsyncRAGPipeline(self.memory_system, top_k=5)
+
+            self.logger.info("✅ memrp memory system initialized")
+
+        except Exception as e:
+            self.logger.error(f"Failed to initialize memrp memory system: {e}")
+            self.memory_system = None
+            self.rag_pipeline = None
+
     async def initialize(self) -> None:
         """Initialize chat manager."""
-        self.logger.info(f"Initializing chat manager for user {self.user_id}")
+        self.logger.info(f"Initializing enhanced chat manager for user {self.user_id}")
 
         # Initialize storage and LLM
         await self.chat_store.initialize()
         await self.model_router.initialize()
 
-        self.logger.info("Chat manager initialized successfully")
+        self.logger.info("Enhanced chat manager initialized successfully")
 
     def set_dependencies(
         self, brain_orchestrator=None, memory_manager=None, document_manager=None
     ):
-        """Inject dependencies from main application."""
+        """Set dependencies (kept for compatibility)"""
         self.brain_orchestrator = brain_orchestrator
         self.memory_manager = memory_manager
         self.document_manager = document_manager
@@ -65,7 +136,7 @@ class ChatManager:
         stream: bool = True,
         **kwargs,
     ) -> Union[ChatMessageResponse, AsyncGenerator[StreamChunk, None]]:
-        """Send a message and get response."""
+        """Send a message and get response with memory integration."""
         start_time = time.time()
 
         try:
@@ -78,7 +149,19 @@ class ChatManager:
                 if not conversation:
                     raise ValueError(f"Conversation {conversation_id} not found")
 
-            # Create user message
+            # Store user message in memory system FIRST
+            if self.memory_system:
+                try:
+                    await self.memory_system.add(
+                        message=message,
+                        user_id=self.user_id,
+                        infer=True,  # Enable fact extraction
+                    )
+                    self.logger.info("✅ Message stored in memory system")
+                except Exception as e:
+                    self.logger.warning(f"Failed to store in memory system: {e}")
+
+            # Create user message record
             user_message = ChatMessage(
                 conversation_id=conversation_id,
                 user_id=self.user_id,
@@ -86,8 +169,6 @@ class ChatManager:
                 content=message,
                 status=MessageStatus.COMPLETED,
             )
-
-            # Store user message
             await self.chat_store.store_message(user_message)
 
             # Create assistant message
@@ -101,11 +182,11 @@ class ChatManager:
             )
 
             if stream:
-                return self._stream_response(
+                return self._stream_response_with_memory(
                     assistant_message, message, conversation_id, start_time
                 )
             else:
-                return await self._complete_response(
+                return await self._complete_response_with_memory(
                     assistant_message, message, conversation_id, start_time
                 )
 
@@ -113,49 +194,48 @@ class ChatManager:
             self.logger.error(f"Failed to send message", error=str(e))
             raise
 
-    async def _create_new_conversation(self, first_message: str) -> Conversation:
-        """Create a new conversation with auto-generated title."""
-        # Generate title from first message (first 50 chars)
-        title = first_message[:50] + "..." if len(first_message) > 50 else first_message
-        title = title.strip() or self.default_conversation_title
-
-        conversation = Conversation(
-            user_id=self.user_id,
-            title=title,
-            description=f"Started with: {first_message[:100]}...",
-        )
-
-        await self.chat_store.create_conversation(conversation)
-        return conversation
-
-    async def _complete_response(
+    async def _complete_response_with_memory(
         self,
         assistant_message: ChatMessage,
         user_message: str,
         conversation_id: str,
         start_time: float,
     ) -> ChatMessageResponse:
-        """Generate complete response."""
+        """Generate complete response using memory system."""
         try:
-            # Get conversation context
-            context = await self._build_context(user_message, conversation_id)
+            # Get memory-enhanced context
+            context = await self._build_memory_context(user_message, conversation_id)
 
-            # Prepare messages for LLM
-            llm_messages = await self._prepare_llm_messages(
-                user_message, conversation_id, context
-            )
+            # Use RAG if available, otherwise fallback to standard LLM
+            if self.rag_pipeline:
+                try:
+                    # Use RAG pipeline for memory-aware response
+                    rag_result = await self.rag_pipeline.query(
+                        user_message, user_id=self.user_id
+                    )
+                    response_text = rag_result.get("answer", "")
+                    sources = rag_result.get("sources", [])
 
-            # Generate response
-            response_text = await self.model_router.generate_response(
-                messages=llm_messages, context=context, stream=False
-            )
+                    self.logger.info(
+                        f"✅ RAG response generated with {len(sources)} sources"
+                    )
+
+                except Exception as e:
+                    self.logger.warning(f"RAG failed, using fallback: {e}")
+                    response_text = await self._fallback_response(user_message, context)
+                    sources = []
+            else:
+                response_text = await self._fallback_response(user_message, context)
+                sources = []
 
             # Update assistant message
             assistant_message.content = response_text
             assistant_message.status = MessageStatus.COMPLETED
             assistant_message.processing_time = time.time() - start_time
             assistant_message.response_type = ResponseType.TEXT
-            assistant_message.sources = context.get("sources", [])
+            assistant_message.sources = [
+                {"type": "memory", "content": s.get("text", "")} for s in sources
+            ]
             assistant_message.token_count = await self.model_router.count_tokens(
                 response_text
             )
@@ -163,9 +243,6 @@ class ChatManager:
 
             # Store assistant message
             await self.chat_store.store_message(assistant_message)
-
-            # Store relevant information in memory
-            await self._store_conversation_memory(user_message, response_text, context)
 
             return ChatMessageResponse(
                 message_id=assistant_message.id,
@@ -185,27 +262,74 @@ class ChatManager:
             await self.chat_store.store_message(assistant_message)
             raise
 
-    async def _stream_response(
+    async def _stream_response_with_memory(
         self,
         assistant_message: ChatMessage,
         user_message: str,
         conversation_id: str,
         start_time: float,
     ) -> AsyncGenerator[StreamChunk, None]:
-        """Generate streaming response."""
+        """Generate streaming response with memory integration."""
         try:
             assistant_message.status = MessageStatus.STREAMING
             await self.chat_store.store_message(assistant_message)
 
-            # Get conversation context
-            context = await self._build_context(user_message, conversation_id)
+            # Use RAG streaming if available
+            if self.rag_pipeline:
+                try:
+                    full_response = ""
+                    chunk_count = 0
 
-            # Prepare messages for LLM
+                    async for chunk_content in self.rag_pipeline.stream_query(
+                        user_message, user_id=self.user_id
+                    ):
+                        chunk_count += 1
+                        full_response += chunk_content
+
+                        yield StreamChunk(
+                            chunk_id=f"{assistant_message.id}_{chunk_count}",
+                            message_id=assistant_message.id,
+                            content=chunk_content,
+                            is_final=False,
+                            metadata={
+                                "chunk_number": chunk_count,
+                                "source": "memory_rag",
+                            },
+                        )
+
+                    # Send final chunk
+                    processing_time = time.time() - start_time
+                    yield StreamChunk(
+                        chunk_id=f"{assistant_message.id}_final",
+                        message_id=assistant_message.id,
+                        content="",
+                        is_final=True,
+                        metadata={
+                            "total_chunks": chunk_count,
+                            "processing_time": processing_time,
+                            "memory_enhanced": True,
+                        },
+                    )
+
+                    # Store final message
+                    assistant_message.content = full_response
+                    assistant_message.status = MessageStatus.COMPLETED
+                    assistant_message.processing_time = processing_time
+                    assistant_message.response_type = ResponseType.TEXT
+                    assistant_message.updated_at = utc_now()
+                    await self.chat_store.store_message(assistant_message)
+
+                    return
+
+                except Exception as e:
+                    self.logger.warning(f"Memory streaming failed: {e}")
+
+            # Fallback to standard streaming
+            context = await self._build_memory_context(user_message, conversation_id)
             llm_messages = await self._prepare_llm_messages(
                 user_message, conversation_id, context
             )
 
-            # Generate streaming response
             response_stream = await self.model_router.generate_response(
                 messages=llm_messages, context=context, stream=True
             )
@@ -225,9 +349,8 @@ class ChatManager:
                     metadata={"chunk_number": chunk_count},
                 )
 
-            # Send final chunk
+            # Final chunk
             processing_time = time.time() - start_time
-
             yield StreamChunk(
                 chunk_id=f"{assistant_message.id}_final",
                 message_id=assistant_message.id,
@@ -236,26 +359,16 @@ class ChatManager:
                 metadata={
                     "total_chunks": chunk_count,
                     "processing_time": processing_time,
-                    "sources": context.get("sources", []),
-                    "token_count": await self.model_router.count_tokens(full_response),
                 },
             )
 
-            # Update and store final message
+            # Store final message
             assistant_message.content = full_response
             assistant_message.status = MessageStatus.COMPLETED
             assistant_message.processing_time = processing_time
             assistant_message.response_type = ResponseType.TEXT
-            assistant_message.sources = context.get("sources", [])
-            assistant_message.token_count = await self.model_router.count_tokens(
-                full_response
-            )
             assistant_message.updated_at = utc_now()
-
             await self.chat_store.store_message(assistant_message)
-
-            # Store in memory
-            await self._store_conversation_memory(user_message, full_response, context)
 
         except Exception as e:
             assistant_message.status = MessageStatus.FAILED
@@ -270,14 +383,13 @@ class ChatManager:
                 metadata={"error": True},
             )
 
-    async def _build_context(
+    async def _build_memory_context(
         self, user_message: str, conversation_id: str
     ) -> Dict[str, Any]:
-        """Build context for LLM including memory and documents."""
+        """Build context using memory system."""
         context = {
             "sources": [],
             "memory_context": [],
-            "document_context": [],
             "conversation_context": [],
         }
 
@@ -291,210 +403,127 @@ class ChatManager:
                 for msg in recent_messages
             ]
 
-            # Search relevant memories
-            if self.memory_manager:
-                relevant_memories = await self.memory_manager.search_memories(
-                    query=user_message, limit=5
-                )
-                context["memory_context"] = [
-                    {
-                        "type": "memory",
-                        "content": mem.content,
-                        "importance": mem.importance.value,
-                        "tags": mem.tags,
-                    }
-                    for mem in relevant_memories
-                ]
-                context["sources"].extend(
-                    [
+            # Get memory context
+            if self.memory_system:
+                try:
+                    memory_results = await self.memory_system.search(
+                        query=user_message, user_id=self.user_id, limit=5
+                    )
+
+                    memories = memory_results.get("results", [])
+                    context["memory_context"] = [
                         {
                             "type": "memory",
-                            "id": mem.id,
-                            "content": mem.content[:100] + "...",
-                            "importance": mem.importance.value,
+                            "content": mem.get("memory", ""),
+                            "score": mem.get("score", 0.0),
                         }
-                        for mem in relevant_memories
+                        for mem in memories
                     ]
-                )
 
-            # Search relevant documents
-            if self.document_manager:
-                relevant_docs = await self.document_manager.search_documents(
-                    query=user_message, limit=3
-                )
-
-                relevant_chunks = await self.document_manager.search_content(
-                    query=user_message, limit=5
-                )
-
-                context["document_context"] = [
-                    {
-                        "type": "document",
-                        "title": doc.title,
-                        "content": " ".join(
-                            [chunk.content for chunk in doc.chunks[:2]]
-                        ),
-                        "category": doc.category.value,
-                    }
-                    for doc in relevant_docs
-                ]
-
-                context["document_context"].extend(
-                    [
+                    context["sources"] = [
                         {
-                            "type": "chunk",
-                            "content": chunk.content,
-                            "source": chunk.document_id,
+                            "type": "memory",
+                            "content": mem.get("memory", "")[:100] + "...",
+                            "score": mem.get("score", 0.0),
                         }
-                        for chunk in relevant_chunks
+                        for mem in memories
                     ]
-                )
 
-                context["sources"].extend(
-                    [
-                        {
-                            "type": "document",
-                            "id": doc.id,
-                            "title": doc.title,
-                            "category": doc.category.value,
-                        }
-                        for doc in relevant_docs
-                    ]
-                )
+                    self.logger.info(f"✅ Retrieved {len(memories)} memory contexts")
+
+                except Exception as e:
+                    self.logger.warning(f"Failed to get memory context: {e}")
 
         except Exception as e:
-            self.logger.warning(f"Failed to build complete context", error=str(e))
+            self.logger.warning(f"Failed to build memory context", error=str(e))
 
         return context
 
-    async def _prepare_llm_messages(
-        self, user_message: str, conversation_id: str, context: Dict[str, Any]
-    ) -> List[Dict[str, str]]:
-        """Prepare messages for LLM with context."""
+    async def _fallback_response(
+        self, user_message: str, context: Dict[str, Any]
+    ) -> str:
+        """Fallback response when RAG is not available."""
+        messages = [
+            {"role": "system", "content": self._build_system_prompt(context)},
+            {"role": "user", "content": user_message},
+        ]
 
-        # System prompt
-        system_prompt = self._build_system_prompt(context)
-
-        messages = [{"role": "system", "content": system_prompt}]
-
-        # Add recent conversation history
-        conversation_context = context.get("conversation_context", [])
-        for msg in conversation_context[-6:]:  # Last 6 messages for context
-            messages.append({"role": msg["role"], "content": msg["content"]})
-
-        # Add current user message
-        messages.append({"role": "user", "content": user_message})
-
-        return messages
+        return await self.model_router.generate_response(
+            messages=messages, context=context, stream=False
+        )
 
     def _build_system_prompt(self, context: Dict[str, Any]) -> str:
-        """Build system prompt with context."""
+        """Build system prompt with memory context."""
         prompt_parts = [
-            "You are FRIDAY, a highly intelligent personal AI assistant.",
-            "You have access to the user's personal documents, memories, and conversation history.",
-            "Provide helpful, accurate, and personalized responses based on the available context.",
-            "Always cite your sources when referencing specific documents or memories.",
-            "",
+            "You are FRIDAY, a highly intelligent personal AI assistant with memory.",
+            "You remember past conversations and user preferences.",
+            "Provide helpful, accurate, and personalized responses.",
         ]
 
         # Add memory context
         memory_context = context.get("memory_context", [])
         if memory_context:
-            prompt_parts.append("RELEVANT MEMORIES:")
+            prompt_parts.append("\nRELEVANT MEMORIES:")
             for mem in memory_context:
-                prompt_parts.append(
-                    f"- {mem['content']} (Tags: {', '.join(mem['tags'])})"
-                )
-            prompt_parts.append("")
+                prompt_parts.append(f"- {mem['content']}")
 
-        # Add document context
-        document_context = context.get("document_context", [])
-        if document_context:
-            prompt_parts.append("RELEVANT DOCUMENTS:")
-            for doc in document_context:
-                if doc["type"] == "document":
-                    prompt_parts.append(f"Document: {doc['title']} ({doc['category']})")
-                    prompt_parts.append(f"Content: {doc['content'][:500]}...")
-                else:
-                    prompt_parts.append(f"Content chunk: {doc['content']}")
-            prompt_parts.append("")
-
-        prompt_parts.extend(
-            [
-                "Use this context to provide informed and personalized responses.",
-                "If you reference specific information, mention which document or memory it came from.",
-                "Be conversational but professional.",
-            ]
-        )
-
+        prompt_parts.append("\nUse this context to provide personalized responses.")
         return "\n".join(prompt_parts)
 
-    async def _store_conversation_memory(
-        self, user_message: str, assistant_response: str, context: Dict[str, Any]
-    ):
-        """Store important parts of conversation in memory."""
-        if not self.memory_manager:
-            return
+    async def _prepare_llm_messages(
+        self, user_message: str, conversation_id: str, context: Dict[str, Any]
+    ) -> List[Dict[str, str]]:
+        """Prepare messages for LLM with context."""
+        system_prompt = self._build_system_prompt(context)
+        messages = [{"role": "system", "content": system_prompt}]
 
-        try:
-            # Store user intent/query if it seems important
-            if len(user_message) > 20 and any(
-                word in user_message.lower()
-                for word in [
-                    "remember",
-                    "important",
-                    "prefer",
-                    "like",
-                    "don't like",
-                    "always",
-                    "never",
-                ]
-            ):
-                await self.memory_manager.create_memory(
-                    content=f"User said: {user_message}",
-                    memory_type=MemoryType.EPISODIC,
-                    importance=MemoryImportance.MEDIUM,
-                    tags=["conversation", "user_statement"],
-                )
+        # Add recent conversation history
+        conversation_context = context.get("conversation_context", [])
+        for msg in conversation_context[-6:]:
+            messages.append({"role": msg["role"], "content": msg["content"]})
 
-            # Store assistant insights if they seem valuable
-            if len(assistant_response) > 50 and not assistant_response.startswith(
-                "I don't"
-            ):
-                await self.memory_manager.create_memory(
-                    content=f"Provided information: {assistant_response[:200]}...",
-                    memory_type=MemoryType.EPISODIC,
-                    importance=MemoryImportance.LOW,
-                    tags=["conversation", "assistant_response"],
-                    expires_in_hours=168,  # 1 week
-                )
+        # Add current user message
+        messages.append({"role": "user", "content": user_message})
+        return messages
 
-        except Exception as e:
-            self.logger.warning(f"Failed to store conversation memory", error=str(e))
+    async def _create_new_conversation(self, first_message: str) -> Conversation:
+        """Create a new conversation."""
+        title = first_message[:50] + "..." if len(first_message) > 50 else first_message
+        title = title.strip() or self.default_conversation_title
 
+        conversation = Conversation(
+            user_id=self.user_id,
+            title=title,
+            description=f"Started with: {first_message[:100]}...",
+        )
+
+        await self.chat_store.create_conversation(conversation)
+        return conversation
+
+    # Keep existing methods for compatibility
     async def get_conversation(self, conversation_id: str) -> Optional[Conversation]:
-        """Get conversation by ID."""
         return await self.chat_store.get_conversation(conversation_id)
 
     async def get_conversation_messages(
         self, conversation_id: str, limit: Optional[int] = None
     ) -> List[ChatMessage]:
-        """Get messages for a conversation."""
         return await self.chat_store.get_conversation_messages(conversation_id, limit)
 
     async def get_user_conversations(
         self, limit: Optional[int] = None
     ) -> List[Conversation]:
-        """Get user's conversations."""
         return await self.chat_store.get_user_conversations(limit)
 
     async def search_conversations(
         self, query: str, limit: int = 10
     ) -> List[ChatMessage]:
-        """Search across all conversations."""
         return await self.chat_store.search_messages(query, limit=limit)
 
     async def shutdown(self) -> None:
         """Shutdown chat manager."""
-        self.logger.info("Shutting down chat manager")
+        self.logger.info("Shutting down enhanced chat manager")
         await self.chat_store.shutdown()
+
+
+# Step 2: Create ChatManager alias for compatibility
+ChatManager = EnhancedChatManager

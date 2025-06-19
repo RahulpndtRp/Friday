@@ -380,3 +380,53 @@ class MemoryManager:
             shutdown_tasks.append(task)
 
         await asyncio.gather(*shutdown_tasks, return_exceptions=True)
+
+    async def search_all_memories(
+        self,
+        query: str = "",
+        memory_types: Optional[List[MemoryType]] = None,
+        importance_filter: Optional[MemoryImportance] = None,
+        limit: int = 50,
+        include_tags: Optional[List[str]] = None,
+    ) -> List[MemoryEntry]:
+        """Enhanced search that can find memories even with empty queries."""
+
+        if query.strip():
+            # Regular search with query
+            results = await self.primary_store.search_memories(
+                query=query, memory_types=memory_types, limit=limit * 2
+            )
+        else:
+            # Get all memories of specified types
+            results = []
+            search_types = memory_types or list(MemoryType)
+
+            for mem_type in search_types:
+                memories = await self.primary_store.get_memories_by_type(
+                    mem_type, limit=limit
+                )
+                results.extend(memories)
+
+        # Apply importance filter
+        if importance_filter:
+            results = [
+                m for m in results if m.importance.value >= importance_filter.value
+            ]
+
+        # Apply tag filter
+        if include_tags:
+            results = [m for m in results if any(tag in m.tags for tag in include_tags)]
+
+        # Sort by importance and recency
+        results.sort(
+            key=lambda m: (m.importance.value, m.accessed_at.timestamp()), reverse=True
+        )
+
+        self.logger.info(
+            "Enhanced memory search completed",
+            query=query or "ALL",
+            results_count=len(results),
+            memory_types=[mt.value for mt in (memory_types or [])],
+        )
+
+        return results[:limit]

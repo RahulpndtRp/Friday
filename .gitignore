@@ -1,6 +1,9 @@
 # Local folders
 data
-
+.faiss
+.faiss_streamlit
+.friday_memory
+user_data
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

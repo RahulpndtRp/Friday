@@ -4,7 +4,8 @@ from typing import Optional, Dict, Any
 import json
 import asyncio
 
-from src.core.chat.models import ChatMessageRequest, ChatMessageResponse, StreamChunk
+from src.core.chat.models import ChatMessageRequest, ChatMessageResponse
+from src.core.memory.models import MemoryType
 from src.core.chat.chat_manager import ChatManager
 from src.core.telemetry.logger import StructuredLogger
 
@@ -212,3 +213,62 @@ async def search_conversations(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
+
+
+@router.get("/memory/debug/{user_id}")
+async def debug_user_memory(user_id: str, limit: Optional[int] = 50):
+    """Debug endpoint to see user's memories."""
+    try:
+        # This would need to be injected like chat_manager
+        from src.core.memory.memory_manager import MemoryManager
+        from src.core.config.settings import Settings
+
+        settings = Settings()
+        memory_manager = MemoryManager(user_id, settings)
+        await memory_manager.initialize()
+
+        # Get all memories
+        all_memories = []
+        for memory_type in MemoryType:
+            memories = await memory_manager.primary_store.get_memories_by_type(
+                memory_type, limit=20
+            )
+            all_memories.extend(
+                [
+                    {
+                        "id": m.id,
+                        "type": m.memory_type.value,
+                        "content": m.content,
+                        "importance": m.importance.value,
+                        "tags": m.tags,
+                        "created_at": m.created_at.isoformat(),
+                        "access_count": m.access_count,
+                    }
+                    for m in memories
+                ]
+            )
+
+        # Sort by importance and recency
+        all_memories.sort(
+            key=lambda x: (x["importance"], x["created_at"]), reverse=True
+        )
+
+        stats = await memory_manager.get_memory_summary()
+
+        await memory_manager.shutdown()
+
+        return {
+            "user_id": user_id,
+            "total_memories": len(all_memories),
+            "memories": all_memories[:limit],
+            "statistics": stats,
+            "memory_breakdown": {
+                memory_type.value: len(
+                    [m for m in all_memories if m["type"] == memory_type.value]
+                )
+                for memory_type in MemoryType
+            },
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
